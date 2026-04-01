@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# Pass Authorization header through to PHP
+RewriteCond %{HTTP:Authorization} .+
+RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# Pass X-Auth-Token through to PHP
+RewriteCond %{HTTP:X-Auth-Token} .+
+RewriteRule ^ - [E=HTTP_X_AUTH_TOKEN:%{HTTP:X-Auth-Token}]
