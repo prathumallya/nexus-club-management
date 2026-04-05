@@ -1538,8 +1538,11 @@ async function loadFromDB() {
         desc:      e.description|| '',
         badge:     e.status === 'open' ? 'open' : 'upcoming',
         badgeText: e.status === 'open' ? 'Open Reg.' : 'Upcoming',
-        teamSize:  e.team_size > 1 ? e.team_size : null
+        teamSize:  e.team_size > 1 ? e.team_size : null,
+        status:    e.status
       };
+    }).filter(function(e) {
+      return e.status !== 'closed'; // hide past/closed events from students
     });
     console.log('[NEXUS] Loaded', events.length, 'events from DB');
   } else {
@@ -1568,6 +1571,7 @@ var currentTag    = 'all';
 var currentClubApp= null;
 var editingEventId= null;
 var sliderIndex   = 0;
+var sliderCount   = 0;
 var sliderTimer   = null;
 var toastTimer    = null;
 
@@ -1924,8 +1928,15 @@ function renderEvents() {
     return evtDate >= today;
   });
 
-  // Merge static + admin-created events
-  var all = liveEvents.concat(clubEvents.map(function(e) {
+  // Merge static + admin-created events, filtering out past/closed ones
+  var liveClubEvents = clubEvents.filter(function(e) {
+    if (e.status === 'closed') return false;
+    if (!e.date) return true;
+    var d = new Date(e.date + 'T00:00:00');
+    return d >= today;
+  });
+
+  var all = liveEvents.concat(liveClubEvents.map(function(e) {
     var d = e.date ? new Date(e.date + 'T00:00:00') : null;
     return {
       id: e.id, day: d ? d.getDate() : '?', month: d ? d.toLocaleString('en',{month:'short'}) : '?',
@@ -3064,6 +3075,7 @@ function renderSlider() {
   // Only show non-past events in slider
   var today = new Date(); today.setHours(0,0,0,0);
   var monthNames = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  sliderCount = 0; // will be set below
   var sliderEvents = events.filter(function(e) {
     if (!e.day || !e.month) return true;
     var mIdx = monthNames.indexOf((e.month||'').toLowerCase().substr(0,3));
@@ -3097,10 +3109,11 @@ function renderSlider() {
         '</div>' +
       '</div></div>';
   }).join('');
+  sliderCount = sliderEvents.length;
   dots.innerHTML=sliderEvents.map(function(_,i){ return '<div class="slider-dot'+(i===0?' active':'')+'" onclick="slideTo('+i+')"></div>'; }).join('');
   startSliderAuto();
 }
-function slideTo(i) { sliderIndex=(i+events.length)%events.length; el('slider-track').style.transform='translateX(-'+(sliderIndex*100)+'%)'; document.querySelectorAll('.slider-dot').forEach(function(d,idx){ d.classList.toggle('active',idx===sliderIndex); }); resetSliderAuto(); }
+function slideTo(i) { sliderIndex=(i+(sliderCount||events.length))%(sliderCount||events.length); el('slider-track').style.transform='translateX(-'+(sliderIndex*100)+'%)'; document.querySelectorAll('.slider-dot').forEach(function(d,idx){ d.classList.toggle('active',idx===sliderIndex); }); resetSliderAuto(); }
 function slideMove(dir) { slideTo(sliderIndex+dir); }
 function startSliderAuto() { clearInterval(sliderTimer); sliderTimer=setInterval(function(){ slideTo(sliderIndex+1); },4000); }
 function resetSliderAuto()  { clearInterval(sliderTimer); sliderTimer=setInterval(function(){ slideTo(sliderIndex+1); },4000); }
