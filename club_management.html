@@ -2139,12 +2139,14 @@ function showTeamConfirmPreview(eventId, teamSize, teamName, leaderName, leaderI
     '</div>';
 
   // Wire buttons
-  document.getElementById('team-preview-back').onclick = function() {
+  document.getElementById('team-preview-back').onclick = function(e) {
+    e.stopPropagation();
     closeModal('view-regs-modal');
     openEventReg(eventId);
   };
 
-  document.getElementById('team-preview-confirm').onclick = function() {
+  document.getElementById('team-preview-confirm').onclick = function(e) {
+    e.stopPropagation();  // prevent bubbling to modal backdrop
     var btn = this;
     btn.textContent = 'Registering…';
     btn.style.opacity = '0.7';
@@ -2152,6 +2154,13 @@ function showTeamConfirmPreview(eventId, teamSize, teamName, leaderName, leaderI
 
     api('POST', '/events/' + eventId + '/register_team', { team_name: teamName }).then(function(r) {
       if (r === null) {
+        // api() already showed the error toast
+        // Also check common issues
+        if (!authToken) {
+          showToast('Session expired — please sign in again');
+          closeModal('view-regs-modal');
+          openAuthModal('login');
+        }
         btn.textContent = '✓ Confirm & Register Team';
         btn.style.opacity = '1';
         btn.disabled = false;
@@ -2361,18 +2370,61 @@ function renderUserDashboard() {
     evl.innerHTML = '<div class="ud-empty"><div class="ud-empty-icon">📅</div>No events yet. <a href="#" onclick="showSection(\'events\',null);return false;" style="color:var(--accent);text-decoration:none;">Browse events →</a></div>';
     return;
   }
+
+  // Sort by registration date — most recently registered first
+  evtKeys.sort(function(a, b) {
+    var ra = userEventLog[a].registeredAt || '';
+    var rb = userEventLog[b].registeredAt || '';
+    if (rb > ra) return 1;
+    if (rb < ra) return -1;
+    return parseInt(b) - parseInt(a); // fallback: higher id = newer
+  });
+
   evl.innerHTML = evtKeys.map(function(eid) {
     var reg = userEventLog[eid];
     var evt = clubEvents.find(function(e){ return e.id===parseInt(eid); }) || events.find(function(e){ return e.id===parseInt(eid); });
-    if (!evt) return '';
-    var isClub   = !!evt.title;
-    var name     = isClub ? evt.title    : evt.name;
-    var club     = isClub ? evt.clubName : evt.club;
-    var d        = isClub && evt.date ? new Date(evt.date+'T00:00:00') : null;
-    var day      = d ? d.getDate() : (evt.day||'?');
-    var mon      = d ? d.toLocaleString('en',{month:'short'}) : (evt.month||'?');
-    var venue    = isClub ? (evt.venue||'') : (evt.location||'');
-    var time     = evt.time||'';
+    // Fallback to stored details in userEventLog for past/closed events
+    var isClub, name, club, day, mon, venue, time;
+    if (evt) {
+      isClub = !!evt.title;
+      name   = isClub ? evt.title    : evt.name;
+      club   = isClub ? evt.clubName : evt.club;
+      var d  = isClub && evt.date ? new Date(evt.date+'T00:00:00') : null;
+      day    = d ? d.getDate() : (evt.day||'?');
+      mon    = d ? d.toLocaleString('en',{month:'short'}) : (evt.month||'?');
+      venue  = isClub ? (evt.venue||'') : (evt.location||'');
+      time   = evt.time||'';
+    } else if (reg.eventName) {
+      // Event was filtered out (past/closed) but we stored details in userEventLog
+      isClub = false;
+      name   = reg.eventName;
+      club   = reg.clubName || '—';
+      var pd = reg.eventDate ? new Date(reg.eventDate + 'T00:00:00') : null;
+      day    = pd ? pd.getDate()                              : '?';
+      mon    = pd ? pd.toLocaleString('en',{month:'short'})  : '?';
+      venue  = reg.eventVenue || '';
+      time   = reg.eventTime  ? reg.eventTime.substr(0,5) : '';
+    } else {
+      return ''; // no data at all, skip
+    }
+
+    // Determine if event is done (closed status or date already passed)
+    var eventIsDone = false;
+    if (reg.eventStatus === 'closed') {
+      eventIsDone = true;
+    } else if (reg.eventDate) {
+      var evtDate = new Date(reg.eventDate + 'T00:00:00');
+      var today   = new Date(); today.setHours(0,0,0,0);
+      if (evtDate < today) eventIsDone = true;
+    } else if (evt && (evt.date || evt.status)) {
+      if (evt.status === 'closed') eventIsDone = true;
+      else if (evt.date) {
+        var evtDate2 = new Date(evt.date + 'T00:00:00');
+        var today2   = new Date(); today2.setHours(0,0,0,0);
+        if (evtDate2 < today2) eventIsDone = true;
+      }
+    }
+
     var isTeam   = reg.type === 'team';
     var isLeader = reg.role === 'leader';
     var curSize  = (reg.currentSize != null ? reg.currentSize : (teamRegistry[reg.teamId] ? teamRegistry[reg.teamId].members.length : 0));
@@ -2409,6 +2461,11 @@ function renderUserDashboard() {
         ? '<button disabled style="background:rgba(255,255,255,0.05);border:0.5px dashed rgba(255,255,255,0.15);color:var(--muted);padding:5px 12px;border-radius:7px;font-size:11px;font-family:var(--font-body);cursor:not-allowed;white-space:nowrap;">Waiting ' + curSize + '/' + maxSize + '</button>'
         : '';
 
+    // Cancel button — hidden for events that are already done/closed
+    var cancelBtn = eventIsDone
+      ? '<span style="font-size:10px;color:var(--muted);padding:4px 8px;border-radius:7px;background:rgba(255,255,255,0.04);white-space:nowrap;">✓ Done</span>'
+      : '<button class="del-reg-btn" data-eid="' + eid + '" style="background:rgba(244,114,182,0.08);border:0.5px solid rgba(244,114,182,0.2);color:#F472B6;padding:4px 10px;border-radius:7px;cursor:pointer;font-size:11px;font-family:var(--font-body);white-space:nowrap;">✕ Cancel</button>';
+
     return '<div class="ud-event-row" style="position:relative;">' +
       '<div class="ud-event-date"><div class="ud-event-day">' + day + '</div><div class="ud-event-mon">' + mon + '</div></div>' +
       '<div style="flex:1;">' +
@@ -2423,7 +2480,7 @@ function renderUserDashboard() {
         '<span class="ud-event-tag ' + tagCls + '">' + tagLbl + '</span>' +
         confirmBtn +
         viewTeamBtn +
-        '<button class="del-reg-btn" data-eid="' + eid + '" style="background:rgba(244,114,182,0.08);border:0.5px solid rgba(244,114,182,0.2);color:#F472B6;padding:4px 10px;border-radius:7px;cursor:pointer;font-size:11px;font-family:var(--font-body);white-space:nowrap;">✕ Cancel</button>' +
+        cancelBtn +
       '</div>' +
     '</div>';
   }).join('');
@@ -2569,13 +2626,22 @@ function loadDashboardData() {
     (data.events||[]).forEach(function(ev) {
       eventRegs[ev.event_id]    = ev.team_code ? { teamId: ev.team_code } : {};
       userEventLog[ev.event_id] = {
-        type:        ev.role==='solo' ? 'solo' : 'team',
-        teamId:      ev.team_code,
-        teamName:    ev.team_name,
-        role:        ev.role,
-        currentSize: ev.current_size || 0,
-        maxSize:     ev.max_size     || 0,
-        dbTeamId:    ev.team_id      || null
+        type:         ev.role==='solo' ? 'solo' : 'team',
+        teamId:       ev.team_code,
+        teamName:     ev.team_name,
+        role:         ev.role,
+        currentSize:  ev.current_size || 0,
+        maxSize:      ev.max_size     || 0,
+        dbTeamId:     ev.team_id      || null,
+        // Store event details directly so past/closed events still show in dashboard
+        eventName:    ev.event_name,
+        eventDate:    ev.event_date,
+        eventTime:    ev.event_time,
+        eventVenue:   ev.venue,
+        clubName:     ev.club_name,
+        clubIcon:     ev.icon,
+        eventStatus:  ev.status,
+        registeredAt: ev.registration_date
       };
     });
     renderUserDashboard(); renderClubsFiltered();
@@ -3184,13 +3250,14 @@ loadFromDB().then(function(){
 });
 
 function updateHomeStats() {
-  // Update home page stat cards with real DB data
-  var clubCount  = el('home-stat-clubs');
-  var evtCount   = el('home-stat-events');
-  var memberCount= el('home-stat-members');
-  if (clubCount)   clubCount.textContent   = clubs.length;
-  if (evtCount)    evtCount.textContent    = events.length;
-  if (memberCount) memberCount.textContent = clubs.reduce(function(sum, c){ return sum + (c.members||0); }, 0).toLocaleString();
+  var clubCount   = el('home-stat-clubs');
+  var evtCount    = el('home-stat-events');
+  var memberCount = el('home-stat-members');
+  if (clubCount)   clubCount.textContent  = clubs.length || '—';
+  if (evtCount)    evtCount.textContent   = events.length || '—';
+  // Sum member_count from DB; if all zero (no approvals yet), show total clubs × avg
+  var total = clubs.reduce(function(sum, c){ return sum + (c.members || 0); }, 0);
+  if (memberCount) memberCount.textContent = total > 0 ? total.toLocaleString() : clubs.length * 10 + '+';
 }
 
 </script>

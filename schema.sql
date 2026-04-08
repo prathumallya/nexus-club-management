@@ -220,4 +220,15 @@ INSERT INTO events (event_name,description,event_date,event_time,venue,club_id,c
 ('AI & Future of Work Panel',   'Industry experts discuss how AI is reshaping careers.',            '2026-03-25','14:00:00','Seminar Hall B',             2,150,2,'open'),
 ('Battle of Bands Spring',      '8 college bands compete for the Spring Cup.',                      '2026-03-28','18:00:00','Open Air Theatre',           11,200,4,'upcoming'),
 ('Inter-College Debate Champ',  '8 colleges, 3 rounds, 1 champion.',                               '2026-03-30','09:00:00','Conference Centre',          10, 80,1,'upcoming'),
-('Spring Robotics Showcase',    'Watch autonomous robots navigate obstacle courses.',               '2026-04-02','11:00:00','Workshop Hall, Block D',     12,100,3,'upcoming');
+('Spring Robotics Showcase',    'Watch autonomous robots navigate obstacle courses.',               '2026-04-02','11:00:00','Workshop Hall, Block D',     12,100,3,'upcoming'),
+('UI/UX Design Sprint',         'Build a complete app prototype in 6 hours. Solo or pair.',         '2026-04-05','10:00:00','Design Lab, Block A',         4, 80,2,'open'),
+('Football Friendly Match',     'Inter-department football match. Come cheer or play!',             '2026-04-08','15:00:00','Sports Ground',               5,150,1,'open'),
+('Open Mic Night',              'Poetry, stand-up, acoustic sets — all genres welcome.',            '2026-04-10','18:30:00','Student Lounge',              11,100,1,'open'),
+('ML Workshop: Build a Chatbot','Hands-on session — train your own NLP model from scratch.',        '2026-04-12','10:00:00','Computer Lab 3, Block B',     2, 60,1,'upcoming'),
+('Photography Exhibition',      'Showcase of the best campus shots from this semester.',            '2026-04-15','16:00:00','Gallery Hall, Admin Block',    3,200,1,'open'),
+('Eco Campus Cleanup Drive',    'Join us to clean and green the campus. Gloves provided!',          '2026-04-18','08:00:00','Main Gate, Campus Entrance',   9,200,1,'open'),
+('Drama Night: One-Act Plays',  'Three original one-act plays performed live by Rangmanch.',        '2026-04-20','19:00:00','Main Auditorium',              8,180,1,'upcoming'),
+('Badminton Tournament',        'Singles and doubles. Register by April 10.',                       '2026-04-22','09:00:00','Indoor Sports Hall',           6, 64,2,'open'),
+('Robotics Build-a-Thon',       'Build a working robot in 8 hours. Top 3 teams win prizes.',        '2026-04-25','09:00:00','Workshop Hall, Block D',      12, 90,3,'upcoming'),
+('Spring Choir Concert',        'Harmony Choir performs classics and contemporary covers.',         '2026-04-27','18:00:00','Open Air Theatre',             7,250,1,'open'),
+('Debate: AI Ethics',           'Moderated debate — Should AI be regulated by governments?',        '2026-04-29','14:00:00','Seminar Hall A',              10, 80,2,'open');

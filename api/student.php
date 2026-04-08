@@ -34,14 +34,14 @@ if ($method === 'GET' && $action === 'me') {
     // Events
     $e = $db->prepare(
         'SELECT er.registration_date, er.role,
-                e.event_id, e.event_name, e.event_date, e.event_time, e.venue,
+                e.event_id, e.event_name, e.event_date, e.event_time, e.venue, e.status,
                 c.club_name, c.icon,
                 t.team_id, t.team_code, t.team_name, t.current_size, t.max_size
          FROM event_registrations er
          JOIN events e ON er.event_id=e.event_id
          JOIN club c ON e.club_id=c.club_id
          LEFT JOIN teams t ON er.team_id=t.team_id
-         WHERE er.student_id=? ORDER BY e.event_date'
+         WHERE er.student_id=? ORDER BY er.registration_date DESC'
     );
     $e->bind_param('i', $id);
     $e->execute();
