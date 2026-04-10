@@ -45,7 +45,7 @@ if ($method === 'POST' && $action === 'register') {
     }
 
     $id    = $stmt->insert_id;
-    $token = jwtEncode(['id' => $id, 'email' => $email, 'name' => $name, 'role' => 'student']);
+    $token = jwtEncode(['id' => $id, 'email' => $email, 'name' => $name, 'role' => 'student', 'student_code' => $sid_val]);
     respond(['token' => $token, 'user' => [
         'id'    => $id,
         'name'  => $name,
@@ -78,10 +78,11 @@ if ($method === 'POST' && $action === 'login') {
         respondError('Incorrect password. Please try again.', 401);
 
     $token = jwtEncode([
-        'id'    => $result['student_id'],
-        'email' => $email,
-        'name'  => $result['name'],
-        'role'  => 'student'
+        'id'           => $result['student_id'],
+        'email'        => $email,
+        'name'         => $result['name'],
+        'role'         => 'student',
+        'student_code' => $result['student_code']
     ]);
     respond(['token' => $token, 'user' => [
         'id'           => $result['student_id'],

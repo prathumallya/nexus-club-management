@@ -36,7 +36,7 @@ if ($method === 'GET' && $action === 'me') {
         'SELECT er.registration_date, er.role,
                 e.event_id, e.event_name, e.event_date, e.event_time, e.venue, e.status,
                 c.club_name, c.icon,
-                t.team_id, t.team_code, t.team_name, t.current_size, t.max_size
+                t.team_id, t.team_code, t.team_name, t.current_size, t.max_size, t.confirmed
          FROM event_registrations er
          JOIN events e ON er.event_id=e.event_id
          JOIN club c ON e.club_id=c.club_id

@@ -126,7 +126,7 @@ if ($method === 'GET' && $action === 'for_event' && $id) {
     $stmt = $db->prepare(
         'SELECT t.*, s.name AS leader_name, s.email AS leader_email
          FROM teams t JOIN students s ON t.leader_id = s.student_id
-         WHERE t.event_id = ? ORDER BY t.created_at'
+         WHERE t.event_id = ? ORDER BY t.confirmed DESC, t.created_at'
     );
     $stmt->bind_param('i', $id);
     $stmt->execute();
@@ -149,6 +149,31 @@ if ($method === 'GET' && $action === 'for_event' && $id) {
         $teams[] = $row;
     }
     respond($teams);
+}
+
+// ── POST ?action=confirm — leader confirms their team (notifies admin) ──
+if ($method === 'POST' && $action === 'confirm') {
+    $user       = requireAuth();
+    $student_id = $user['id'];
+    $body       = getBody();
+    $code       = strtoupper(trim($body['team_code'] ?? ''));
+    if (!$code) respondError('team_code required');
+
+    $db   = getDB();
+    // Find team and verify this student is the leader
+    $stmt = $db->prepare('SELECT * FROM teams WHERE team_code=?');
+    $stmt->bind_param('s', $code);
+    $stmt->execute();
+    $team = $stmt->get_result()->fetch_assoc();
+    if (!$team) respondError('Team not found', 404);
+    if ((int)$team['leader_id'] !== (int)$student_id) respondError('Only the team leader can confirm', 403);
+
+    // Mark team as confirmed
+    $upd = $db->prepare('UPDATE teams SET confirmed=1, confirmed_at=NOW() WHERE team_code=?');
+    $upd->bind_param('s', $code);
+    $upd->execute();
+
+    respond(['message' => 'Team confirmed', 'team_code' => $code]);
 }
 
 // ── DELETE ?action=delete&id={team_id} — admin deletes a team ──

@@ -99,6 +99,8 @@ CREATE TABLE IF NOT EXISTS teams (
     leader_id    INT NOT NULL,
     max_size     INT NOT NULL DEFAULT 2,
     current_size INT DEFAULT 0,
+    confirmed    TINYINT(1) DEFAULT 0,
+    confirmed_at TIMESTAMP NULL,
     created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (event_id)  REFERENCES events(event_id)     ON DELETE CASCADE,
     FOREIGN KEY (leader_id) REFERENCES students(student_id) ON DELETE CASCADE

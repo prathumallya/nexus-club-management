@@ -204,11 +204,12 @@ if ($method === 'POST' && $action === 'register_solo' && $id) {
     $sid  = $user['id'];
     $db   = getDB();
 
-    $chk  = $db->prepare('SELECT registered_count, capacity FROM events WHERE event_id=?');
+    $chk  = $db->prepare('SELECT registered_count, capacity, status FROM events WHERE event_id=?');
     $chk->bind_param('i', $id);
     $chk->execute();
     $ev   = $chk->get_result()->fetch_assoc();
     if (!$ev) respondError('Event not found', 404);
+    if ($ev['status'] !== 'open') respondError('Registration is down or closed for this event', 403);
     if ($ev['registered_count'] >= $ev['capacity']) respondError('Event is full', 400);
 
     $stmt = $db->prepare('INSERT INTO event_registrations (student_id,event_id,role) VALUES (?,?,?)');
@@ -234,11 +235,12 @@ if ($method === 'POST' && $action === 'register_team' && $id) {
     if (!$team_name) respondError('team_name required');
 
     $db  = getDB();
-    $chk = $db->prepare('SELECT team_size, registered_count, capacity FROM events WHERE event_id=?');
-    $chk->bind_param('i', $id);
-    $chk->execute();
-    $ev = $chk->get_result()->fetch_assoc();
+    $ck = $db->prepare('SELECT team_size, registered_count, capacity, status FROM events WHERE event_id=?');
+    $ck->bind_param('i', $id);
+    $ck->execute();
+    $ev = $ck->get_result()->fetch_assoc();
     if (!$ev) respondError('Event not found', 404);
+    if ($ev['status'] !== 'open') respondError('Registration is down or closed for this event', 403);
     if ($ev['team_size'] < 2) respondError('Not a team event', 400);
     if ($ev['registered_count'] >= $ev['capacity']) respondError('Event is full', 400);
 
