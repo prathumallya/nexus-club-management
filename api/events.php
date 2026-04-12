@@ -1,6 +1,7 @@
 <?php
 // api/events.php
 require_once 'config.php';
+require_once 'mailer_helper.php';
 
 $method   = $_SERVER['REQUEST_METHOD'];
 $action   = $_GET['action']  ?? '';
@@ -204,7 +205,7 @@ if ($method === 'POST' && $action === 'register_solo' && $id) {
     $sid  = $user['id'];
     $db   = getDB();
 
-    $chk  = $db->prepare('SELECT registered_count, capacity, status FROM events WHERE event_id=?');
+    $chk  = $db->prepare('SELECT event_name, event_date, event_time, venue, registered_count, capacity, status FROM events WHERE event_id=?');
     $chk->bind_param('i', $id);
     $chk->execute();
     $ev   = $chk->get_result()->fetch_assoc();
@@ -221,9 +222,37 @@ if ($method === 'POST' && $action === 'register_solo' && $id) {
     }
     // Pre-insert attendance row
     $att = $db->prepare('INSERT IGNORE INTO attendance (event_id, student_id) VALUES (?,?)');
-    $att->bind_param('ii', $id, $sid);
-    $att->execute();
     respond(['message' => 'Registered']);
+}
+
+// POST /api/events.php?action=send_solo_mail&id=N — hidden async call
+if ($method === 'POST' && $action === 'send_solo_mail' && $id) {
+    $user = requireAuth();
+    $db   = getDB();
+    $chk  = $db->prepare('SELECT event_name, event_date, event_time, venue FROM events WHERE event_id=?');
+    $chk->bind_param('i', $id);
+    $chk->execute();
+    $ev   = $chk->get_result()->fetch_assoc();
+    if ($ev) {
+        $subject = "Registration Confirmed: {$ev['event_name']}";
+        $fmt_date = date('F j, Y', strtotime($ev['event_date']));
+        $fmt_time = $ev['event_time'] ? date('g:i A', strtotime($ev['event_time'])) : '';
+        $datetime = $fmt_date . ($fmt_time ? ' at ' . $fmt_time : '');
+        
+        $content = "
+            <p>Hi <strong style='color: #fff;'>{$user['name']}</strong>,</p>
+            <p>You have successfully registered for <strong>{$ev['event_name']}</strong>.</p>
+            <div style='background-color: #1e293b; padding: 20px; border-radius: 10px; border-left: 4px solid #a855f7; margin: 30px 0;'>
+                <p style='margin: 0 0 10px 0;'><strong>When:</strong> <span style='color:#f8fafc;'>{$datetime}</span></p>
+                <p style='margin: 0;'><strong>Where:</strong> <span style='color:#f8fafc;'>{$ev['venue']}</span></p>
+            </div>
+            <p>We look forward to seeing you there! Make sure to arrive on time.</p>
+        ";
+        
+        $body = getEmailTemplate("Registration Successful! 🎉", $content);
+        sendEmail($user['email'], $subject, $body);
+    }
+    respond(['message' => 'Sent']);
 }
 
 // POST /api/events.php?action=register_team&id=N  — leader creates team
@@ -235,7 +264,7 @@ if ($method === 'POST' && $action === 'register_team' && $id) {
     if (!$team_name) respondError('team_name required');
 
     $db  = getDB();
-    $ck = $db->prepare('SELECT team_size, registered_count, capacity, status FROM events WHERE event_id=?');
+    $ck = $db->prepare('SELECT event_name, event_date, event_time, venue, team_size, registered_count, capacity, status FROM events WHERE event_id=?');
     $ck->bind_param('i', $id);
     $ck->execute();
     $ev = $ck->get_result()->fetch_assoc();
@@ -268,7 +297,48 @@ if ($method === 'POST' && $action === 'register_team' && $id) {
     $att = $db->prepare('INSERT IGNORE INTO attendance (event_id, student_id) VALUES (?,?)');
     $att->bind_param('ii', $id, $leader_id);
     $att->execute();
+
     respond(['team_code' => $code, 'team_id' => $team_id, 'message' => 'Team created']);
+}
+
+// POST /api/events.php?action=send_team_mail&id=N&code=... — hidden async call
+if ($method === 'POST' && $action === 'send_team_mail' && $id) {
+    $user = requireAuth();
+    $body = getBody();
+    $teamName = $body['team_name'] ?? 'Your Team';
+    $code     = $body['team_code'] ?? 'N/A';
+    
+    $db  = getDB();
+    $ck = $db->prepare('SELECT event_name, event_date, event_time, venue FROM events WHERE event_id=?');
+    $ck->bind_param('i', $id);
+    $ck->execute();
+    $ev = $ck->get_result()->fetch_assoc();
+    
+    if ($ev) {
+        $subject = "Team Created for {$ev['event_name']}";
+        $fmt_date = date('F j, Y', strtotime($ev['event_date']));
+        $fmt_time = $ev['event_time'] ? date('g:i A', strtotime($ev['event_time'])) : '';
+        $datetime = $fmt_date . ($fmt_time ? ' at ' . $fmt_time : '');
+        
+        $content = "
+            <p>Hi <strong style='color: #fff;'>{$user['name']}</strong>,</p>
+            <p>You have successfully registered your team <strong style='color: #fff;'>{$teamName}</strong> for <strong>{$ev['event_name']}</strong>.</p>
+            <div style='background-color: #1e293b; padding: 24px; border-radius: 12px; border: 1px solid rgba(167, 139, 250, 0.3); text-align: center; margin: 30px 0;'>
+                <p style='margin: 0 0 10px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;'>Your Team Code</p>
+                <div style='font-family: monospace; font-size: 32px; font-weight: 800; color: #a855f7; letter-spacing: 4px; padding: 10px;'>{$code}</div>
+                <p style='margin: 10px 0 0 0; font-size: 13px; color: #94a3b8;'>Share this code with your teammates so they can join your team on the platform!</p>
+            </div>
+            <div style='background-color: #0d121f; padding: 20px; border-radius: 10px; margin: 24px 0;'>
+                <p style='margin: 0 0 10px 0;'><strong>When:</strong> <span style='color:#f8fafc;'>{$datetime}</span></p>
+                <p style='margin: 0;'><strong>Where:</strong> <span style='color:#f8fafc;'>{$ev['venue']}</span></p>
+            </div>
+            <p style='margin-bottom:0;'>Good luck leading your team!</p>
+        ";
+        
+        $email_body = getEmailTemplate("Team Created Successfully! 🛡️", $content);
+        sendEmail($user['email'], $subject, $email_body);
+    }
+    respond(['message' => 'Sent']);
 }
 
 // GET /api/events.php?action=registrations&id=N  — admin view

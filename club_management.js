@@ -198,7 +198,7 @@ async function loadFromDB() {
         month:     d ? d.toLocaleString('en', { month: 'short' }) : '?',
         name:      e.event_name,
         club:      e.club_name  || '',
-        time:      e.event_time ? e.event_time.substr(0, 5) : '',
+        time:      e.event_time ? formatTime12(e.event_time) : '',
         location:  e.venue      || '',
         desc:      e.description|| '',
         badge:     e.status === 'open' ? 'open' : 'upcoming',
@@ -246,6 +246,17 @@ var toastTimer    = null;
 function el(id)  { return document.getElementById(id); }
 function val(id) { var e = el(id); return e ? e.value.trim() : ''; }
 
+function formatTime12(timeStr) {
+  if (!timeStr) return '';
+  var parts = timeStr.split(':');
+  if (parts.length < 2) return timeStr;
+  var h = parseInt(parts[0], 10);
+  var m = parseInt(parts[1], 10);
+  var ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  h = h ? h : 12;
+  return h + ':' + (m < 10 ? '0'+m : m) + ' ' + ampm;
+}
 
 function openModal(id)  { el(id).classList.add('open');    document.body.style.overflow = 'hidden'; }
 function closeModal(id) { el(id).classList.remove('open'); document.body.style.overflow = '';       }
@@ -294,6 +305,10 @@ function switchAuthTab(tab) {
     if (p) p.style.display = t === tab ? 'block' : 'none';
     if (b) b.classList.toggle('active', t === tab);
   });
+  if (tab === 'register') {
+    if (el('reg-step-1')) el('reg-step-1').style.display = 'block';
+    if (el('reg-step-2')) el('reg-step-2').style.display = 'none';
+  }
 }
 
 // ── Student login ──
@@ -320,14 +335,75 @@ function studentLogin() {
 }
 
 // ── Student register ──
+function studentSendOtp() {
+  var name  = val('r-name');
+  var email = val('r-email');
+  var pass  = el('r-pass') ? el('r-pass').value : '';
+  if (!name || !email || !pass) { showToast('Please fill in name, email and password'); return; }
+
+  var btn = el('btn-send-otp');
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+
+  api('POST', '/auth/send_otp', { email: email }).then(function(result) {
+    btn.textContent = 'Send OTP';
+    btn.disabled = false;
+    if (result) {
+      if (result.debug_otp) {
+          console.log("TESTING OTP:", result.debug_otp); // For testing when SMTP fails
+      }
+      showToast('OTP sent to your email');
+      el('reg-step-1').style.display = 'none';
+      el('reg-step-2').style.display = 'block';
+      startResendTimer();
+    }
+  });
+}
+
+var resendTimer = null;
+function startResendTimer() {
+  var btn = el('btn-resend-otp');
+  if (!btn) return;
+  var secondsLeft = 300; // 5 minutes
+  btn.disabled = true;
+  if(resendTimer) clearInterval(resendTimer);
+  
+  var updateBtn = function() {
+    if (secondsLeft <= 0) {
+      clearInterval(resendTimer);
+      btn.textContent = 'Resend OTP';
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    } else {
+      var m = Math.floor(secondsLeft / 60);
+      var s = secondsLeft % 60;
+      btn.textContent = 'Resend OTP in ' + m + ':' + (s < 10 ? '0' : '') + s;
+      btn.style.opacity = '0.5';
+    }
+  };
+  
+  updateBtn();
+  resendTimer = setInterval(function() {
+    secondsLeft--;
+    updateBtn();
+  }, 1000);
+}
+
 function studentRegister() {
   var name  = val('r-name');
   var email = val('r-email');
   var pass  = el('r-pass') ? el('r-pass').value : '';
   var sid   = val('r-sid');
-  if (!name || !email || !pass) { showToast('Please fill in name, email and password'); return; }
+  var otp   = val('r-otp');
+  if (!otp) { showToast('Please enter the 6-digit OTP'); return; }
 
-  api('POST', '/auth/register', { name: name, email: email, password: pass, student_code: sid }).then(function(result) {
+  var btn = el('btn-verify-otp');
+  btn.textContent = 'Verifying...';
+  btn.disabled = true;
+
+  api('POST', '/auth/register', { name: name, email: email, password: pass, student_code: sid, otp: otp }).then(function(result) {
+    btn.textContent = 'Verify & Create Account';
+    btn.disabled = false;
     if (result && result.token) {
       saveToken(result.token);
       currentUser = { id: result.user.id, name: name, email: email, initial: name.charAt(0).toUpperCase(), studentCode: sid || '' };
@@ -335,8 +411,9 @@ function studentRegister() {
       showToast('Account created! Welcome to NEXUS 🎉');
       buildStudentNav();
       renderClubsFiltered();
-    } else {
-      // Error toast already shown by api() with the exact reason from PHP
+      el('reg-step-1').style.display = 'block';
+      el('reg-step-2').style.display = 'none';
+      ['r-name','r-email','r-sid','r-pass','r-otp'].forEach(function(i){if(el(i))el(i).value='';});
     }
   });
 }
@@ -742,8 +819,15 @@ function submitSoloReg(eventId) {
     return;
   }
 
+  // Disable button to prevent double-submit
+  var sbtn = document.querySelector('#event-reg-modal .auth-submit');
+  if (sbtn) { sbtn.disabled = true; sbtn.textContent = 'Registering…'; }
+
   api('POST', '/events/' + eventId + '/register_solo', {}).then(function(r) {
-    if (r === null) return; // error already shown (already registered / event full)
+    if (r === null) {
+      if (sbtn) { sbtn.disabled = false; sbtn.textContent = 'Register'; }
+      return; // error already shown (already registered / event full)
+    }
     eventRegs[eventId] = {};
     if (currentUser) userEventLog[eventId] = { type:'solo', name: name };
     var evt = clubEvents.find(function(e){ return e.id===eventId; });
@@ -752,6 +836,9 @@ function submitSoloReg(eventId) {
     showToast('Registered successfully! ✓');
     renderEvents();
     renderUserDashboard();
+    
+    // Send email asynchronously in the background so UI doesn't block
+    fetch(API_BASE + '/events.php?action=send_solo_mail&id=' + eventId, { method: 'POST', headers: apiHeaders() }).catch(e=>{});
   });
 }
 
@@ -980,7 +1067,12 @@ function openJoinTeamModal() {
     openAuthModal('login');
     return;
   }
-  ['jt-teamid','jt-name','jt-sid'].forEach(function(id){ var e=el(id); if(e) e.value=''; });
+  
+  el('jt-teamid').value = '';
+  var jn = el('jt-name'), jsid = el('jt-sid');
+  if (jn) jn.value = currentUser ? currentUser.name : '';
+  if (jsid) jsid.value = (currentUser && currentUser.studentCode) ? currentUser.studentCode : '';
+  
   openModal('join-team-modal');
 }
 function closeJoinTeamModal(e) { if (!e || e.target === el('join-team-modal')) closeModal('join-team-modal'); }
@@ -1011,6 +1103,13 @@ function submitJoinTeam() {
     showToast('Joined team "' + t.team_name + '" (' + t.current_size + '/' + t.max_size + ') ✓');
     renderEvents();
     renderUserDashboard();
+    
+    // Dispatch background email
+    fetch(API_BASE + '/teams.php?action=send_join_mail', { 
+      method: 'POST', 
+      headers: apiHeaders(),
+      body: JSON.stringify({ team_name: t.team_name, event_id: t.event_id })
+    }).catch(e=>{});
   });
 }
 
@@ -1990,6 +2089,20 @@ loadFromDB().then(function(){
   renderSlider();
   restoreSession();
 });
+
+// Initialize minimal 12-hour time picker
+if (window.flatpickr) {
+  // Let the browser handle Date natively to keep it simple
+  flatpickr("#cev-time", {
+    enableTime: true,
+    noCalendar: true,
+    dateFormat: "H:i",
+    altInput: true,
+    altFormat: "h:i K",
+    time_24hr: false,
+    disableMobile: "true"
+  });
+}
 
 function updateHomeStats() {
   var clubCount   = el('home-stat-clubs');

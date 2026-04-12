@@ -139,6 +139,15 @@ CREATE TABLE IF NOT EXISTS attendance (
 );
 
 -- =========================
+-- 9. EMAIL OTPS
+-- =========================
+CREATE TABLE IF NOT EXISTS email_otps (
+    email VARCHAR(100) PRIMARY KEY,
+    otp VARCHAR(6) NOT NULL,
+    expires_at DATETIME NOT NULL
+);
+
+-- =========================
 -- TRIGGERS
 -- =========================
 DROP TRIGGER IF EXISTS after_membership_update;

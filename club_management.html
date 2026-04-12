@@ -5,9 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NEXUS — College Club Hub</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="club_management.css">
+<link rel="stylesheet" href="club_management.css?v=2">
 <!-- SheetJS for Excel export -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<!-- Flatpickr for simple 12hr time enforcement -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </head>
 <body>
 
@@ -58,11 +61,22 @@
         <div style="font-family:var(--font-head);font-size:22px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px;">Join <span style="color:var(--accent2);">NEXUS</span></div>
         <div style="font-size:13px;color:var(--muted);font-weight:300;">Create your student account</div>
       </div>
-      <div class="input-group"><label>Full Name</label><input type="text" id="r-name" placeholder="Priya Sharma" /></div>
-      <div class="input-group"><label>College Email</label><input type="email" id="r-email" placeholder="priya@college.edu" /></div>
-      <div class="input-group"><label>Student ID</label><input type="text" id="r-sid" placeholder="CS2024001" /></div>
-      <div class="input-group"><label>Password</label><input type="password" id="r-pass" placeholder="Create a strong password" /></div>
-      <button class="auth-submit" onclick="studentRegister()">Create Account</button>
+      <div id="reg-step-1">
+        <div class="input-group"><label>Full Name</label><input type="text" id="r-name" placeholder="Priya Sharma" /></div>
+        <div class="input-group"><label>College Email</label><input type="email" id="r-email" placeholder="priya@college.edu" /></div>
+        <div class="input-group"><label>Student ID</label><input type="text" id="r-sid" placeholder="CS2024001" /></div>
+        <div class="input-group"><label>Password</label><input type="password" id="r-pass" placeholder="Create a strong password" /></div>
+        <button class="auth-submit" id="btn-send-otp" onclick="studentSendOtp()">Send OTP</button>
+      </div>
+      <div id="reg-step-2" style="display:none;">
+        <div style="font-size:13px; color:var(--accent); margin-bottom:12px; text-align:center;">We've sent a 6-digit code to your email.</div>
+        <div class="input-group"><label>Enter OTP</label><input type="text" id="r-otp" placeholder="123456" style="text-align:center; font-size:24px; letter-spacing:8px; font-weight:bold;" maxlength="6" /></div>
+        <button class="auth-submit" id="btn-verify-otp" onclick="studentRegister()">Verify & Create Account</button>
+        <div style="text-align:center; margin-top:14px;">
+           <button id="btn-resend-otp" onclick="studentSendOtp()" style="background:none; border:none; color:var(--accent2); cursor:pointer; font-size:12px; font-weight:bold; padding:0;">Resend OTP</button>
+        </div>
+        <div style="text-align:center;font-size:12px;color:var(--muted);margin-top:14px;cursor:pointer;" onclick="document.getElementById('reg-step-2').style.display='none'; document.getElementById('reg-step-1').style.display='block';">&#8592; Back to edit details</div>
+      </div>
       <div style="text-align:center;font-size:13px;color:var(--muted);margin-top:18px;">Already a member? <a href="#" style="color:var(--accent);text-decoration:none;font-weight:500;" onclick="switchAuthTab('login')">Sign in &#8594;</a></div>
     </div>
     <div id="modal-admin" style="display:none;">
@@ -429,7 +443,7 @@
   <span id="toast-msg"></span>
 </div>
 
-<script src="club_management.js"></script>
+<script src="club_management.js?v=4"></script>
 
 </body>
 </html>

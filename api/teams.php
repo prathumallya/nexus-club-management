@@ -1,6 +1,7 @@
 <?php
 // api/teams.php
 require_once 'config.php';
+require_once 'mailer_helper.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
@@ -22,7 +23,7 @@ if ($method === 'POST' && $action === 'join') {
     if (!$team) respondError('Team code not found', 404);
     if ($team['current_size'] >= $team['max_size']) respondError('Team is already full', 400);
 
-    $ec = $db->prepare('SELECT registered_count, capacity FROM events WHERE event_id=?');
+    $ec = $db->prepare('SELECT event_name, event_date, event_time, venue, registered_count, capacity FROM events WHERE event_id=?');
     $ec->bind_param('i', $team['event_id']);
     $ec->execute();
     $ev = $ec->get_result()->fetch_assoc();
@@ -54,10 +55,42 @@ if ($method === 'POST' && $action === 'join') {
     $mq->bind_param('i', $team['team_id']);
     $mq->execute();
     $members = [];
-    $mr = $mq->get_result();
-    while ($r = $mr->fetch_assoc()) $members[] = $r;
-
     respond(['message' => 'Joined team', 'team' => $updated, 'members' => $members]);
+}
+
+// ── HEADER ?action=send_join_mail — hidden async call
+if ($method === 'POST' && $action === 'send_join_mail') {
+    $user = requireAuth();
+    $body = getBody();
+    $teamName = $body['team_name'] ?? 'Team';
+    $eventId  = intval($body['event_id'] ?? 0);
+    
+    $db = getDB();
+    $ec = $db->prepare('SELECT event_name, event_date, event_time, venue FROM events WHERE event_id=?');
+    $ec->bind_param('i', $eventId);
+    $ec->execute();
+    $ev = $ec->get_result()->fetch_assoc();
+    
+    if ($ev) {
+        $subject = "Joined Team: {$teamName}";
+        $fmt_date = date('F j, Y', strtotime($ev['event_date']));
+        $fmt_time = $ev['event_time'] ? date('g:i A', strtotime($ev['event_time'])) : '';
+        $datetime = $fmt_date . ($fmt_time ? ' at ' . $fmt_time : '');
+        
+        $content = "
+            <p>Hi <strong style='color: #fff;'>{$user['name']}</strong>,</p>
+            <p>You have successfully joined the team <strong style='color: #34D399;'>{$teamName}</strong> for the event <strong>{$ev['event_name']}</strong>.</p>
+            <div style='background-color: #1e293b; padding: 20px; border-radius: 10px; border-left: 4px solid #34D399; margin: 30px 0;'>
+                <p style='margin: 0 0 10px 0;'><strong>When:</strong> <span style='color:#f8fafc;'>{$datetime}</span></p>
+                <p style='margin: 0;'><strong>Where:</strong> <span style='color:#f8fafc;'>{$ev['venue']}</span></p>
+            </div>
+            <p>Get ready to collaborate with your team!</p>
+        ";
+        
+        $email_body = getEmailTemplate("Successfully Joined Team! 🤝", $content);
+        sendEmail($user['email'], $subject, $email_body);
+    }
+    respond(['message' => 'Sent']);
 }
 
 // ── GET ?action=members&id={team_id} — get team members (leader or admin) ──
