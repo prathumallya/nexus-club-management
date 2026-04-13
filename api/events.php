@@ -222,6 +222,8 @@ if ($method === 'POST' && $action === 'register_solo' && $id) {
     }
     // Pre-insert attendance row
     $att = $db->prepare('INSERT IGNORE INTO attendance (event_id, student_id) VALUES (?,?)');
+    $att->bind_param('ii', $id, $sid);
+    $att->execute();
     respond(['message' => 'Registered']);
 }
 
@@ -369,11 +371,11 @@ if ($method === 'GET' && $action === 'attendance' && $id) {
         'SELECT a.attendance_id, a.present, a.marked_at,
                 s.student_id, s.name, s.email, s.student_code, s.department,
                 er.role, t.team_name
-         FROM attendance a
-         JOIN students s ON a.student_id=s.student_id
-         JOIN event_registrations er ON er.student_id=s.student_id AND er.event_id=a.event_id
+         FROM event_registrations er
+         JOIN students s ON er.student_id=s.student_id
+         LEFT JOIN attendance a ON a.student_id=er.student_id AND a.event_id=er.event_id
          LEFT JOIN teams t ON er.team_id=t.team_id
-         WHERE a.event_id=? ORDER BY s.name'
+         WHERE er.event_id=? ORDER BY s.name'
     );
     $stmt->bind_param('i', $id);
     $stmt->execute();
@@ -406,6 +408,11 @@ if ($method === 'PATCH' && $action === 'attendance_all' && $id) {
     $pres  = $body['present'] ? 1 : 0;
     $aid   = $admin['id'];
     $db    = getDB();
+    // Ensure all registered students have an attendance row first
+    $ins = $db->prepare('INSERT IGNORE INTO attendance (event_id, student_id) SELECT event_id, student_id FROM event_registrations WHERE event_id=?');
+    $ins->bind_param('i', $id);
+    $ins->execute();
+
     $stmt  = $db->prepare('UPDATE attendance SET present=?, marked_by=?, marked_at=NOW() WHERE event_id=?');
     $stmt->bind_param('iii', $pres, $aid, $id);
     $stmt->execute();

@@ -1252,6 +1252,10 @@ function renderUserDashboard() {
       ? '<span style="font-size:10px;color:var(--muted);padding:4px 8px;border-radius:7px;background:rgba(255,255,255,0.04);white-space:nowrap;">✓ Done</span>'
       : '<button class="del-reg-btn" data-eid="' + eid + '" style="background:rgba(244,114,182,0.08);border:0.5px solid rgba(244,114,182,0.2);color:#F472B6;padding:4px 10px;border-radius:7px;cursor:pointer;font-size:11px;font-family:var(--font-body);white-space:nowrap;">✕ Cancel</button>';
 
+    var certBtn = (eventIsDone && reg.present)
+      ? '<button class="cert-btn" data-eid="' + eid + '" style="background:linear-gradient(135deg, #A78BFA, #7C3AED);border:none;color:#fff;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:11px;font-family:var(--font-body);font-weight:600;white-space:nowrap;margin-top:6px;box-shadow:0 2px 6px rgba(124,58,237,0.3);">🎓 Certificate</button>'
+      : '';
+
     return '<div class="ud-event-row" style="position:relative;">' +
       '<div class="ud-event-date"><div class="ud-event-day">' + day + '</div><div class="ud-event-mon">' + mon + '</div></div>' +
       '<div style="flex:1;">' +
@@ -1267,6 +1271,7 @@ function renderUserDashboard() {
         confirmBtn +
         viewTeamBtn +
         cancelBtn +
+        certBtn +
       '</div>' +
     '</div>';
   }).join('');
@@ -1284,6 +1289,9 @@ function renderUserDashboard() {
     });
     el('ud-events-list').querySelectorAll('[data-copy]').forEach(function(span) {
       span.onclick = function() { copyTid(this.dataset.copy); };
+    });
+    el('ud-events-list').querySelectorAll('.cert-btn').forEach(function(btn) {
+      btn.onclick = function() { window.open('api/certificate.php?event_id=' + this.dataset.eid + '&_token=' + authToken, '_blank'); };
     });
   }, 50);
 }
@@ -1428,7 +1436,8 @@ function loadDashboardData() {
         clubName:     ev.club_name,
         clubIcon:     ev.icon,
         eventStatus:  ev.status,
-        registeredAt: ev.registration_date
+        registeredAt: ev.registration_date,
+        present:      ev.present == 1
       };
     });
     renderUserDashboard(); renderClubsFiltered();
@@ -1565,10 +1574,13 @@ function submitCreateEvent() {
   var title=val('cev-title'), date=val('cev-date'), venue=val('cev-venue');
   if (!title||!date||!venue) { showToast('Please fill in title, date and venue'); return; }
 
+  var type = val('cev-type');
+  var ts = type === 'solo' ? 1 : (parseInt(val('cev-teamsize'))||2);
+
   var evData = {
     event_name: title, description: val('cev-desc'), event_date: date,
     event_time: val('cev-time'), venue: venue, capacity: parseInt(val('cev-maxreg'))||100,
-    team_size: parseInt(val('cev-teamsize'))||1, status: val('cev-status')
+    team_size: ts, status: val('cev-status')
   };
 
   var doSave = function(newId) {
