@@ -136,6 +136,21 @@
   </div>
 </div>
 
+<!-- LEAVE CLUB MODAL -->
+<div class="modal-overlay" id="leave-club-modal" onclick="closeLeaveClubModal(event)">
+  <div class="modal-box" style="max-width:440px;">
+    <button class="modal-close" onclick="closeLeaveClubModal()">&#x2715;</button>
+    <div style="font-family:var(--font-head);font-size:22px;font-weight:800;margin-bottom:6px;">Leave Club</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:22px;font-weight:300;">You are about to leave <strong id="lc-club-name" style="color:var(--accent2);"></strong>. Please provide a reason — this will be sent to the club admin.</div>
+    <input type="hidden" id="lc-membership-id" />
+    <div class="input-group"><label>Reason for leaving (Optional)</label><textarea id="lc-reason" placeholder="e.g. Schedule conflicts, not enough time, etc." style="min-height:80px;"></textarea></div>
+    <div style="display:flex;gap:12px;margin-top:24px;">
+      <button class="auth-submit" style="background:rgba(255,255,255,0.05);color:var(--text);border:0.5px solid var(--border);" onclick="closeLeaveClubModal()">Cancel</button>
+      <button class="auth-submit" style="background:rgba(244,114,182,0.15);color:#F472B6;border:0.5px solid rgba(244,114,182,0.3);" onclick="submitLeaveClub()">Leave Club</button>
+    </div>
+  </div>
+</div>
+
 <!-- VIEW APPLICATION DETAIL MODAL -->
 <div class="modal-overlay" id="view-app-modal" onclick="closeViewModal(event)">
   <div class="club-modal-box">
@@ -359,13 +374,14 @@
       </div>
       <!-- Dashboard nav tabs -->
       <div class="dash-nav">
-        <button class="dash-tab active" onclick="switchDashTab('members',this)">Members</button>
+        <button class="dash-tab active" onclick="switchDashTab('applications',this)">Applications</button>
+        <button class="dash-tab" onclick="switchDashTab('members',this)">Members List</button>
         <button class="dash-tab" onclick="switchDashTab('events',this)">Events</button>
         <button class="dash-tab" onclick="switchDashTab('attendance',this)">Attendance</button>
       </div>
 
-      <!-- MEMBERS TAB -->
-      <div class="dash-panel active" id="dash-members">
+      <!-- APPLICATIONS TAB -->
+      <div class="dash-panel active" id="dash-applications">
         <div class="admin-tabs-row">
           <button class="admin-tab active" onclick="filterApps('all',this)">All</button>
           <button class="admin-tab" onclick="filterApps('pending',this)">Pending</button>
@@ -374,6 +390,12 @@
         </div>
         <div class="app-row-head"><div>Applicant</div><div>Details</div><div>Applied</div><div>Status</div><div>Actions</div></div>
         <div id="admin-app-list"></div>
+      </div>
+
+      <!-- MEMBERS LIST TAB -->
+      <div class="dash-panel" id="dash-members">
+        <div class="app-row-head"><div>Member</div><div>Details</div><div>Joined</div><div>Actions</div></div>
+        <div id="admin-member-list"></div>
       </div>
 
       <!-- EVENTS TAB -->

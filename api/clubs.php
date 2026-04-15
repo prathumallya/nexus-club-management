@@ -16,7 +16,7 @@ if ($method === 'GET' && !$action && !$id) {
 }
 
 // GET /api/clubs.php?id=5  — single club
-if ($method === 'GET' && $id) {
+if ($method === 'GET' && !$action && $id) {
     $db   = getDB();
     $stmt = $db->prepare('SELECT * FROM club WHERE club_id = ?');
     $stmt->bind_param('i', $id);
@@ -111,6 +111,56 @@ if ($method === 'PATCH' && $action === 'review' && $id) {
     $stmt->bind_param('sii', $status, $aid, $id);
     $stmt->execute();
     respond(['message' => 'Status updated']);
+}
+// POST /api/clubs.php?action=leave  — student leaves a club voluntarily
+if ($method === 'POST' && $action === 'leave') {
+    $user = requireAuth();
+    $body = getBody();
+    $membership_id = intval($body['membership_id'] ?? 0);
+    $reason = trim($body['reason'] ?? 'No reason provided');
+
+    if (!$membership_id) respondError('Membership ID required');
+
+    $db = getDB();
+    
+    // First, fetch the membership, club, and student details
+    $stmt = $db->prepare('
+        SELECT m.status, c.club_id, c.club_name, a.email AS admin_email, s.name AS student_name, s.student_code
+        FROM membership m
+        JOIN club c ON m.club_id = c.club_id
+        LEFT JOIN admin a ON c.club_id = a.club_id
+        JOIN students s ON m.student_id = s.student_id
+        WHERE m.membership_id = ? AND m.student_id = ?
+    ');
+    $stmt->bind_param('ii', $membership_id, $user['id']);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+
+    if (!$row) respondError('Membership not found or unauthorized', 404);
+
+    // Delete the membership
+    $del = $db->prepare('DELETE FROM membership WHERE membership_id = ?');
+    $del->bind_param('i', $membership_id);
+    $del->execute();
+
+    // If they were an accepted member, decrement the member_count
+    if ($row['status'] === 'accepted') {
+        $db->query('UPDATE club SET member_count = GREATEST(member_count-1,0) WHERE club_id = ' . $row['club_id']);
+    }
+
+    // Send email to admin
+    if (!empty($row['admin_email'])) {
+        require_once 'mailer_helper.php';
+        $subject = 'Member Left: ' . $row['club_name'];
+        $bodyHtml = getEmailTemplate('Member Left', '
+            <p><strong>' . htmlspecialchars($row['student_name']) . '</strong> (' . htmlspecialchars($row['student_code']) . ') has voluntarily left <strong>' . htmlspecialchars($row['club_name']) . '</strong>.</p>
+            <p><strong>Reason provided:</strong></p>
+            <blockquote style="border-left: 4px solid #a855f7; padding-left: 12px; color: #94a3b8; font-style: italic;">' . nl2br(htmlspecialchars($reason)) . '</blockquote>
+        ');
+        sendEmail($row['admin_email'], $subject, $bodyHtml);
+    }
+
+    respond(['message' => 'Successfully left the club']);
 }
 
 respondError('Invalid request', 404);

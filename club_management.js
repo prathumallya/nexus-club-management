@@ -472,6 +472,7 @@ function adminLogin() {
       buildAdminNav();
       showSection('admin', null);
       showToast('Signed in as ' + ad.club_name + ' admin');
+      loadAdminApplications();
       loadAdminClubEvents();
     } else {
       // Error toast already shown by api() with the specific message from PHP
@@ -515,6 +516,7 @@ function adminLogout() {
   setNavArea(makeNavBtn('Sign In / Register', function(){ openAuthModal('login'); }));
   el('admin-login-prompt').style.display = 'flex';
   el('admin-dashboard').style.display    = 'none';
+  switchDashTab('applications', document.querySelector('.dash-tab'));
   showSection('home', null);
   showToast('Signed out');
 }
@@ -547,6 +549,33 @@ function loadAdminClubEvents() {
     renderAdminEvents();
     renderAttendanceEventList();
     renderEvents();
+  });
+}
+
+function loadAdminApplications() {
+  if (!currentAdmin || !currentAdmin.id) return;
+  api('GET', '/clubs?action=members&id=' + currentAdmin.id).then(function(rows) {
+    if (!rows) return;
+    applications = applications.filter(function(a) { return a.club !== currentAdmin.name; });
+    rows.forEach(function(m) {
+      applications.push({
+        id: m.membership_id,
+        club: currentAdmin.name,
+        clubIcon: currentAdmin.icon,
+        clubColor: currentAdmin.color,
+        name: m.name,
+        email: m.email,
+        studentId: m.student_code || m.student_id || '',
+        year: m.year || '',
+        dept: m.department || '',
+        status: m.status,
+        why: m.why_join || '',
+        skills: m.skills || '',
+        availability: m.availability || '',
+        date: m.created_at ? new Date(m.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : ''
+      });
+    });
+    renderAdminPanel();
   });
 }
 
@@ -1142,9 +1171,11 @@ function renderUserDashboard() {
       var cl = clubs.find(function(c){ return c.name===a.club; });
       var sc = a.status==='accepted'?'#34D399':a.status==='rejected'?'#F472B6':'var(--accent3)';
       var sl = a.status==='accepted'?'✓ Member':a.status==='rejected'?'✗ Not accepted':'⏳ Pending review';
-      return '<div class="ud-club-card">' +
+      var leaveBtn = a.status==='accepted' ? '<button class="leave-club-btn" onclick="openLeaveClubModal(\'' + a.id + '\', \'' + esc(a.club) + '\')" style="margin-left:auto;background:rgba(244,114,182,0.1);color:#F472B6;border:0.5px solid rgba(244,114,182,0.2);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;">Leave Club</button>' : '';
+      return '<div class="ud-club-card" style="display:flex;align-items:center;">' +
         '<div class="ud-club-icon ' + (cl?cl.color:'cyan') + '">' + (cl?cl.icon:'🏛️') + '</div>' +
-        '<div><div class="ud-club-name">' + a.club + '</div><div class="ud-club-status" style="color:' + sc + ';font-size:12px;">' + sl + '</div></div></div>';
+        '<div style="flex:1;"><div class="ud-club-name">' + a.club + '</div><div class="ud-club-status" style="color:' + sc + ';font-size:12px;">' + sl + '</div></div>' +
+        leaveBtn + '</div>';
     }).join('');
   }
 
@@ -1294,6 +1325,36 @@ function renderUserDashboard() {
       btn.onclick = function() { window.open('api/certificate.php?event_id=' + this.dataset.eid + '&_token=' + authToken, '_blank'); };
     });
   }, 50);
+}
+
+// ── Leave Club Flow ──
+function openLeaveClubModal(membershipId, clubName) {
+  el('lc-membership-id').value = membershipId;
+  el('lc-club-name').textContent = clubName;
+  el('lc-reason').value = '';
+  openModal('leave-club-modal');
+}
+function closeLeaveClubModal(e) { if (!e || e.target === el('leave-club-modal')) closeModal('leave-club-modal'); }
+
+function submitLeaveClub() {
+  if (!authToken) { showToast('Please sign in'); return; }
+  var memId = el('lc-membership-id').value;
+  var reason = val('lc-reason').trim();
+  
+  var sbtn = document.querySelector('#leave-club-modal .auth-submit:last-child');
+  if (sbtn) { sbtn.disabled = true; sbtn.textContent = 'Leaving...'; }
+
+  api('POST', '/clubs?action=leave', { membership_id: memId, reason: reason }).then(function(r) {
+    if (sbtn) { sbtn.disabled = false; sbtn.textContent = 'Leave Club'; }
+    if (r === null) return;
+    
+    // Remove locally from applications array
+    applications = applications.filter(function(a) { return String(a.id) !== String(memId); });
+    
+    closeModal('leave-club-modal');
+    showToast('You have left the club.');
+    renderUserDashboard();
+  });
 }
 
 // Delete a student's own event registration
@@ -1484,6 +1545,27 @@ function renderAdminPanel() {
       '</div>';
     }).join('');
   }
+
+  var mList = el('admin-member-list');
+  var members = ca.filter(function(a){ return a.status==='accepted'; });
+  if (mList) {
+    if (!members.length) {
+      mList.innerHTML = '<div class="empty-state"><div>👥</div>No members yet.</div>';
+    } else {
+      mList.innerHTML = members.map(function(a) {
+        return '<div class="app-row">' +
+          '<div><div class="app-name">' + a.name + '</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">' + a.email + '</div></div>' +
+          '<div><div style="font-size:13px;font-weight:500;">' + (a.year||'—') + ' · ' + (a.dept||'—') + '</div><div style="font-size:12px;color:var(--muted);margin-top:2px;">' + a.studentId + '</div></div>' +
+          '<div class="app-date">' + a.date + '</div>' +
+          '<div><span class="status-chip accepted">Member</span></div>' +
+          '<div class="app-actions">' +
+            '<button class="app-btn reject" onclick="removeMember(' + a.id + ')">Remove</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+  }
+
   renderAdminEvents();
   renderAttendanceEventList();
 }
@@ -1505,6 +1587,11 @@ function setAppStatus(id, status) {
     renderAdminPanel(); renderClubsFiltered(); renderUserDashboard();
     showToast((status==='accepted'?'✅':status==='rejected'?'❌':'🔄') + ' ' + a.name + ' ' + status);
   });
+}
+
+function removeMember(id) {
+  if (!confirm("Are you sure you want to remove this member?")) return;
+  setAppStatus(id, 'rejected');
 }
 
 function viewApplication(id) {
@@ -2073,6 +2160,16 @@ function restoreSession() {
         }
         loadDashboardData();
       });
+    } else if (payload.role === 'admin') {
+      var clubData = clubs.find(function(c) { return String(c.id) === String(payload.club_id); });
+      var cName = clubData ? clubData.name : 'Club';
+      var cIcon = clubData ? clubData.icon : '🏛️';
+      var cColor = clubData ? clubData.color : 'cyan';
+      currentAdmin = { name: cName, icon: cIcon, color: cColor, id: payload.club_id };
+      buildAdminNav();
+      showSection('admin', null);
+      loadAdminApplications();
+      loadAdminClubEvents();
     }
   } catch(e) { clearToken(); }
 }
