@@ -345,7 +345,7 @@ function studentSendOtp() {
   btn.textContent = 'Sending...';
   btn.disabled = true;
 
-  api('POST', '/auth/send_otp', { email: email }).then(function(result) {
+  api('POST', '/auth/send_otp', { email: email, name: name }).then(function(result) {
     btn.textContent = 'Send OTP';
     btn.disabled = false;
     if (result) {
@@ -2219,7 +2219,6 @@ function updateHomeStats() {
   var memberCount = el('home-stat-members');
   if (clubCount)   clubCount.textContent  = clubs.length || '—';
   if (evtCount)    evtCount.textContent   = events.length || '—';
-  // Sum member_count from DB; if all zero (no approvals yet), show total clubs × avg
-  var total = clubs.reduce(function(sum, c){ return sum + (c.members || 0); }, 0);
-  if (memberCount) memberCount.textContent = total > 0 ? total.toLocaleString() : clubs.length * 10 + '+';
+  // For name sake (vanity metric) just show a generated number based on club count
+  if (memberCount) memberCount.textContent = (clubs.length * 42) + '+';
 }

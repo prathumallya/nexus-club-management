@@ -242,4 +242,9 @@ INSERT INTO events (event_name,description,event_date,event_time,venue,club_id,c
 ('Badminton Tournament',        'Singles and doubles. Register by April 10.',                       '2026-04-22','09:00:00','Indoor Sports Hall',           6, 64,2,'open'),
 ('Robotics Build-a-Thon',       'Build a working robot in 8 hours. Top 3 teams win prizes.',        '2026-04-25','09:00:00','Workshop Hall, Block D',      12, 90,3,'upcoming'),
 ('Spring Choir Concert',        'Harmony Choir performs classics and contemporary covers.',         '2026-04-27','18:00:00','Open Air Theatre',             7,250,1,'open'),
-('Debate: AI Ethics',           'Moderated debate — Should AI be regulated by governments?',        '2026-04-29','14:00:00','Seminar Hall A',              10, 80,2,'open');
+('Debate: AI Ethics',           'Moderated debate — Should AI be regulated by governments?',        '2026-04-29','14:00:00','Seminar Hall A',              10, 80,2,'open'),
+('Web3 & Blockchain Bootcamp',  'Learn the basics of smart contracts and decentralized apps.',      '2026-05-02','14:00:00','Computer Lab 1, Block B',      1, 80,1,'upcoming'),
+('Annual Art Gala',             'An evening of fine arts, sculpting, and digital media displays.',  '2026-05-05','17:00:00','Creative Studio, Block A',     4,150,1,'upcoming'),
+('Inter-college Basketball',    'The ultimate 5v5 showdown for the summer trophy.',                 '2026-05-08','09:00:00','Indoor Sports Complex',        5,200,5,'upcoming'),
+('Acoustic Sundowner',          'Relax with acoustic melodies as the sun sets over campus.',        '2026-05-12','17:30:00','Lakeside Amphitheatre',       11,100,1,'open'),
+('Tech Startup Pitch Deck',     'Pitch your million-dollar idea to angel investors.',               '2026-05-15','10:00:00','Incubation Center',            1,120,4,'upcoming');

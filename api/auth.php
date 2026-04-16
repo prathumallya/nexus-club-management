@@ -9,6 +9,7 @@ $action = $_GET['action'] ?? '';
 if ($method === 'POST' && $action === 'send_otp') {
     $body = getBody();
     $email = trim($body['email'] ?? '');
+    $name  = trim($body['name'] ?? 'Student');
 
     if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL))
         respondError('Please enter a valid email address');
